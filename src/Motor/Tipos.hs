@@ -46,3 +46,17 @@ data Estado = Estado {
     estadoInventario   :: [String], -- IDs de los objetos que lleva el jugador
     estadoMundo        :: Mundo     -- Referencia al mundo estático
 } deriving (Show, Eq)
+
+-- Comandos mínimos
+data Comando
+    = Ir String
+    | Mirar
+    | Tomar String
+    | Soltar String
+    | Examinar String
+    | Inventario
+    | Guardar String
+    | Cargar String
+    | Ayuda
+    | Salir
+    deriving (Show, Eq)

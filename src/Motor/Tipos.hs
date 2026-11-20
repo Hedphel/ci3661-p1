@@ -8,6 +8,10 @@ data Meta
     | LlevarObjetoASala String String   -- llevar <objeto> a <sala>
     deriving (Show, Eq)
 
+-- Solo 6 direcciones permitidas
+data Direccion = Norte | Sur | Este | Oeste | Arriba | Abajo
+    deriving (Show, Eq)
+
 -- Salida: puede ser libre o estar bloqueada
 data Salida
     = SalidaLibre String String             -- <dirección> -> <sala>

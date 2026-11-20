@@ -40,22 +40,16 @@ encadenar p f s =
     , (y, resto2) <- f x resto1
     ]
 
--- Alternativa: junta los resultados de probar p y luego q
+-- Alternativa: prueba el primer reconocedor y luego el segundo
+infixr 5 <|>
 (<|>) :: ReadS a -> ReadS a -> ReadS a
 (p <|> q) s = p s ++ q s
 
--- Cero o más repeticiones de p
+-- Cero o más repeticiones
 muchos :: ReadS a -> ReadS [a]
-muchos p = uno <|> ninguno
-    where
-        ninguno s = [([], s)]
-        uno s =
-            [ (x : xs, r2)
-            | (x, r1)  <- p s
-            , (xs, r2) <- muchos p r1
-            ]
+muchos p = algunos p <|> retornar []
 
--- Una o más repeticiones de p
+-- Una o más repeticiones
 algunos :: ReadS a -> ReadS [a]
 algunos p s =
     [ (x : xs, r2)
@@ -63,6 +57,22 @@ algunos p s =
     , (xs, r2) <- muchos p r1
     ]
 
+-- Ejecuta p, luego q, y descarta el resultado de p (*>)
+descartarPrimero :: ReadS a -> ReadS b -> ReadS b
+descartarPrimero p q = encadenar p (\_ -> q)
+
+-- Ejecuta p, luego q, y descarta el resultado de q (<*)
+descartarSegundo :: ReadS a -> ReadS b -> ReadS a
+descartarSegundo p q = encadenar p (\x -> transformar (\_ -> x) q)
+
 -- Salta cero o más espacios en blanco
 espacios :: ReadS String
 espacios = muchos (caracter isSpace)
+
+-- Ejecuta un reconocedor saltando espacios antes y después
+entreEspacios :: ReadS a -> ReadS a
+entreEspacios p = descartarPrimero espacios (descartarSegundo p espacios)
+
+-- Intenta reconocer con p; si falla, devuelve el valor por defecto
+opcional :: a -> ReadS a -> ReadS a
+opcional defecto p = p <|> retornar defecto

@@ -24,19 +24,19 @@ cargarMundo ruta = do
 guardarmeEsta :: FilePath -> Estado -> IO (Either String ())
 guardarmeEsta ruta estado = do
     resultado <- try (writeFile ruta (show estado)) :: IO (Either IOException ())
-    return case resultado of
+    return (case resultado of
         Left err -> Left ("Error al guardar la partida: " ++ show err)
-        Right _  -> Right ()
+        Right _  -> Right ())
 
 -- Cargar partida. Si falla (el archivo no existe o corrupto), informa sin caerse
 cargameEsta :: FilePath -> Mundo -> IO (Either String Estado)
 cargameEsta ruta mundoActual = do
     resultado <- try (readFile ruta) :: IO (Either IOException String)
-    return case resultado of
+    return (case resultado of
         Left _ -> Left "El archivo de guardado no existe o no se puede leer."
         Right contenido -> case readMaybe contenido of
             Nothing -> Left "El archivo de guardado está corrupto."
-            Just estadoGuardado -> 
+            Just estadoGuardado ->
                 if mundoTitulo (estadoMundo estadoGuardado) /= mundoTitulo mundoActual
                 then Left "El archivo de guardado pertenece a otro mundo."
-                else Right estadoGuardado
+                else Right estadoGuardado)

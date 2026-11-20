@@ -20,6 +20,26 @@ cadena (x:xs) s =
     , (_, resto2) <- cadena xs resto1
     ]
 
+-- Retorna un valor sin consumir nada de la entrada (pure/return)
+retornar :: a -> ReadS a
+retornar x s = [(x, s)]
+
+-- Reconocedor que siempre falla
+fallar :: ReadS a
+fallar _ = []
+
+-- Mapea una función sobre el resultado del reconocedor (fmap)
+transformar :: (a -> b) -> ReadS a -> ReadS b
+transformar f p s = [(f x, resto) | (x, resto) <- p s]
+
+-- Secuenciación monádica (bind / >>=)
+encadenar :: ReadS a -> (a -> ReadS b) -> ReadS b
+encadenar p f s =
+    [ (y, resto2)
+    | (x, resto1) <- p s
+    , (y, resto2) <- f x resto1
+    ]
+
 -- Alternativa: junta los resultados de probar p y luego q
 (<|>) :: ReadS a -> ReadS a -> ReadS a
 (p <|> q) s = p s ++ q s

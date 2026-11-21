@@ -1,4 +1,33 @@
-module Motor.Reconocedor where
+module Motor.Reconocedor (
+    -- Tipos
+    ReadS,
+    -- Primitivas básicas
+    caracter,
+    char,
+    cadena,
+    retornar,
+    fallar,
+    -- Combinadores
+    (<|>),
+    transformar,
+    encadenar,
+    muchos,
+    algunos,
+    descartarPrimero,
+    descartarSegundo,
+    entreEspacios,
+    espacios,
+    opcional,
+    -- Parsers específicos del dominio
+    esCharIdentificador,
+    identificador,
+    claveParser,
+    direccionParser,
+    salidaParser,
+    metaParser,
+    -- Ejecución
+    ejecutarParser
+) where    
 
 import Motor.Tipos
 import Data.Char (isSpace, isUpper)

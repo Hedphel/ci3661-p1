@@ -1,6 +1,7 @@
 module Motor.Reconocedor where
 
-import Data.Char (isSpace)
+import Motor.Tipos
+import Data.Char (isSpace, isUpper)
 
 -- Reconoce un solo carácter si cumple el predicado p
 caracter :: (Char -> Bool) -> ReadS Char
@@ -76,3 +77,83 @@ entreEspacios p = descartarPrimero espacios (descartarSegundo p espacios)
 -- Intenta reconocer con p; si falla, devuelve el valor por defecto
 opcional :: a -> ReadS a -> ReadS a
 opcional defecto p = p <|> retornar defecto
+
+----- Reconocedores del juego -----
+
+esCharIdentificador :: Char -> Bool
+esCharIdentificador c =
+    (c >= 'a' && c <= 'z')
+    || (c >= '0' && c <= '9')
+    || c == '_'
+    || c `elem` "áéíóúñü"
+
+-- Reconoce un identificador válido
+identificador :: ReadS String
+identificador = algunos (caracter esCharIdentificador)
+
+-- Para las claves en mayúsculas
+claveParser :: ReadS String
+claveParser = algunos (caracter isUpper)
+
+direccionParser :: ReadS String
+direccionParser =
+    cadena "norte"
+    <|> cadena "sur"
+    <|> cadena "este"
+    <|> cadena "oeste"
+    <|> cadena "arriba"
+    <|> cadena "abajo"
+
+flecha :: ReadS String
+flecha = entreEspacios (cadena "->")
+
+-- Reconoce una SALIDA:
+-- 1: <dir> -> <sala>
+-- 2: <dir> -> <sala> requiere <objeto>
+salidaParser :: ReadS Salida
+salidaParser = salidaConBloqueo <|> salidaSimple
+    where
+        salidaSimple =
+            encadenar direccionParser $ \dir ->
+            descartarPrimero flecha $
+            encadenar identificador $ \destino ->
+            retornar (SalidaLibre dir destino)
+        salidaConBloqueo =
+            encadenar direccionParser $ \dir ->
+            descartarPrimero flecha $
+            encadenar identificador $ \destino ->
+            descartarPrimero (entreEspacios (cadena "requiere")) $
+            encadenar identificador $ \obj ->
+            retornar (SalidaBloqueada dir destino obj)
+
+-- Reconoce la META:
+-- 1: llegar a <sala>
+-- 2: llevar <objeto> a <sala>
+metaParser :: ReadS Meta
+metaParser = metaLlegar <|> metaLlevar
+    where
+        metaLlegar =
+            descartarPrimero (cadena "llegar") $
+            descartarPrimero (entreEspacios (cadena "a")) $
+            encadenar identificador $ \sala ->
+            retornar (LlegarASala sala)
+        metaLlevar =
+            descartarPrimero (cadena "llevar") $
+            descartarPrimero espacios $
+            encadenar identificador $ \obj ->
+            descartarPrimero (entreEspacios (cadena "a")) $
+            encadenar identificador $ \sala ->
+            retornar (LlevarObjetoASala obj sala)
+        
+
+----- Ejecución del parser ------
+
+-- Se ejecuta el parser consumiendo todo el texto
+-- Nos quedamos con el primer resultado exitoso
+ejecutarParser :: ReadS a -> String -> Maybe a
+ejecutarParser p s =
+    let parserCompleto = descartarSegundo (descartarPrimero espacios p) espacios
+        resultados = [val | (val, resto) <- parserCompleto s, null resto]
+    in case resultados of
+        (exito:_) -> Just exito
+        []        -> Nothing

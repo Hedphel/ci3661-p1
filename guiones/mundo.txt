@@ -1,0 +1,18 @@
+mirar
+tomar linterna
+ir este
+tomar tarjeta_red
+ir oeste
+ir norte
+ir abajo
+mirar
+tomar llave_maestra
+ir arriba
+ir norte
+ir este
+tomar informe_cifrado
+ir oeste
+ir oeste
+ir norte
+inventario
+salir

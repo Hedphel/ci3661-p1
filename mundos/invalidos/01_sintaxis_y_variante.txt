@@ -1,0 +1,14 @@
+# Errores esperados (V1):
+# - Valor invalido para LUZ en OBJETO
+# - META mal formada
+
+MUNDO: Prueba sintaxis y luz
+INICIO: sala_uno
+META: ganar el juego
+---
+OBJETO: lampara
+DESC: Lampara de prueba.
+LUZ: tal_vez
+---
+SALA: sala_uno
+DESC: Sala inicial.

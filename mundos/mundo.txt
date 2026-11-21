@@ -1,0 +1,67 @@
+MUNDO: Operacion Ciber-Campus
+INICIO: entrada
+META: llevar informe_cifrado a sala_salida
+---
+OBJETO: linterna
+DESC: Una linterna LED de alta potencia.
+LUZ: si
+---
+OBJETO: tarjeta_red
+DESC: Credencial magnetica para puertas de seguridad de red.
+---
+OBJETO: llave_maestra
+DESC: Llave fisica del cuarto de servidores principal.
+---
+OBJETO: informe_cifrado
+DESC: Unidad de respaldo con los datos del proyecto.
+---
+OBJETO: cuaderno
+DESC: Notas de mantenimiento del laboratorio.
+---
+OBJETO: cable_consola
+DESC: Cable serial para diagnostico de equipos.
+---
+SALA: entrada
+DESC: Recepcion del edificio de computacion.
+OBJETO: linterna
+OBJETO: cuaderno
+SALIDA: norte -> pasillo_central
+SALIDA: este -> caseta_seguridad
+---
+SALA: caseta_seguridad
+DESC: Pequena caseta de control con monitores apagados.
+OBJETO: tarjeta_red
+SALIDA: oeste -> entrada
+---
+SALA: pasillo_central
+DESC: Corredor largo con puertas etiquetadas.
+OBJETO: cable_consola
+SALIDA: sur -> entrada
+SALIDA: norte -> sala_seguridad requiere tarjeta_red
+SALIDA: abajo -> sotano_servidores
+---
+SALA: sotano_servidores
+DESC: Sotano humedo donde funcionan los racks principales.
+OSCURA: si
+OBJETO: llave_maestra
+SALIDA: arriba -> pasillo_central
+---
+SALA: sala_seguridad
+DESC: Sala de control con acceso restringido.
+SALIDA: sur -> pasillo_central
+SALIDA: este -> boveda_datos requiere llave_maestra
+SALIDA: oeste -> antesala_salida
+---
+SALA: boveda_datos
+DESC: Boveda climatizada con los servidores criticos.
+OBJETO: informe_cifrado
+SALIDA: oeste -> sala_seguridad
+---
+SALA: antesala_salida
+DESC: Area de transicion hacia la salida exterior.
+SALIDA: norte -> sala_salida
+SALIDA: sur -> pasillo_central
+---
+SALA: sala_salida
+DESC: Puerta principal hacia el exterior del campus.
+SALIDA: sur -> antesala_salida

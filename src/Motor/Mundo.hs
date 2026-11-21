@@ -6,7 +6,7 @@ import Motor.Tipos
 import Motor.Reconocedor
 -- El (nub) nos permite identificar duplicados
 import Data.List (nub)
-import Data.Char (isSpace)
+import Data.Char (isSpace, toLower)
 import qualified Data.Map as M
 
 -- Eliminar espacios en blanco al inicio y al final de un String
@@ -191,22 +191,33 @@ aplicarParseoMeta _ (Right m) acc errs xs =
 data ObjetoAcc = ObjetoAcc
   { objAccId   :: Maybe String
   , objAccDesc :: Maybe String
+  , objAccLuz  :: Maybe Bool
   }
 
 objetoVacio :: ObjetoAcc
-objetoVacio = ObjetoAcc Nothing Nothing
+objetoVacio = ObjetoAcc Nothing Nothing Nothing
 
 validarBloqueObjeto :: [LineaCruda] -> ([ErrorMundo], Maybe Objeto)
 validarBloqueObjeto lineas = finalizarObjeto (recorrerObjeto objetoVacio [] lineas)
 
 recorrerObjeto :: ObjetoAcc -> [ErrorMundo] -> [LineaCruda] -> (ObjetoAcc, [ErrorMundo])
 recorrerObjeto acc errs [] = (acc, errs)
+recorrerObjeto acc errs (LineaCruda n "LUZ" val : xs) =
+  agregarLuzObjeto n val (objAccLuz acc) acc errs xs
 recorrerObjeto acc errs (LineaCruda n "OBJETO" val : xs) =
   agregarIdObjeto n val (objAccId acc) acc errs xs
 recorrerObjeto acc errs (LineaCruda n "DESC" val : xs) =
   agregarDescObjeto n val (objAccDesc acc) acc errs xs
 recorrerObjeto acc errs (LineaCruda n clave _ : xs) =
   recorrerObjeto acc (ErrorSintaxis n ("Clave inválida en bloque OBJETO: " ++ clave) : errs) xs
+
+
+agregarLuzObjeto :: Int -> String -> Maybe Bool -> ObjetoAcc -> [ErrorMundo] -> [LineaCruda] -> (ObjetoAcc, [ErrorMundo])
+agregarLuzObjeto n _ (Just _) acc errs xs =
+  recorrerObjeto acc (ErrorSintaxis n "LUZ repetida en bloque OBJETO" : errs) xs
+agregarLuzObjeto n val Nothing acc errs xs
+  | map toLower val == "si" = recorrerObjeto (acc { objAccLuz = Just True }) errs xs
+  | otherwise               = recorrerObjeto acc (ErrorSintaxis n ("Valor inválido para LUZ en OBJETO: " ++ val) : errs) xs  
 
 agregarIdObjeto :: Int -> String -> Maybe String -> ObjetoAcc -> [ErrorMundo] -> [LineaCruda] -> (ObjetoAcc, [ErrorMundo])
 agregarIdObjeto n _ (Just _) acc errs xs =
@@ -224,16 +235,20 @@ agregarDescObjeto _ val Nothing acc errs xs =
   recorrerObjeto (acc { objAccDesc = Just val }) errs xs
 
 finalizarObjeto :: (ObjetoAcc, [ErrorMundo]) -> ([ErrorMundo], Maybe Objeto)
-finalizarObjeto (acc, errs) = cerrarObjeto (objAccId acc) (objAccDesc acc) errs
+finalizarObjeto (acc, errs) =
+  let luzVal = case objAccLuz acc of
+        Just b  -> b
+        Nothing -> False
+  in cerrarObjeto (objAccId acc) (objAccDesc acc) luzVal errs
 
-cerrarObjeto :: Maybe String -> Maybe String -> [ErrorMundo] -> ([ErrorMundo], Maybe Objeto)
-cerrarObjeto Nothing desc errs =
-  cerrarObjeto (Just "") desc (ErrorSintaxis 1 "Falta OBJETO en bloque" : errs)
-cerrarObjeto oid Nothing errs =
-  cerrarObjeto oid (Just "") (ErrorSintaxis 1 "Falta DESC en bloque OBJETO" : errs)
-cerrarObjeto (Just oid) (Just desc) [] =
-  ([], Just (Objeto { objId = oid, objDesc = desc }))
-cerrarObjeto _ _ errs =
+cerrarObjeto :: Maybe String -> Maybe String -> Bool -> [ErrorMundo] -> ([ErrorMundo], Maybe Objeto)
+cerrarObjeto Nothing desc luzVal errs =
+  cerrarObjeto (Just "") desc luzVal (ErrorSintaxis 1 "Falta OBJETO en bloque" : errs)
+cerrarObjeto oid Nothing luzVal errs =
+  cerrarObjeto oid (Just "") luzVal (ErrorSintaxis 1 "Falta DESC en bloque OBJETO" : errs)
+cerrarObjeto (Just oid) (Just desc) luzVal [] =
+  ([], Just (Objeto { objId = oid, objDesc = desc, objLuz = luzVal }))
+cerrarObjeto _ _ _ errs =
   (reverse errs, Nothing)
 
 data SalaAcc = SalaAcc
@@ -241,10 +256,11 @@ data SalaAcc = SalaAcc
   , salaAccDesc    :: Maybe String
   , salaAccSalidas :: [Salida]
   , salaAccObjetos :: [String]
+  , salaAccOscura  :: Maybe Bool
   }
 
 salaVacia :: SalaAcc
-salaVacia = SalaAcc Nothing Nothing [] []
+salaVacia = SalaAcc Nothing Nothing [] [] Nothing
 
 validarBloqueSala :: [LineaCruda] -> ([ErrorMundo], Maybe Sala)
 validarBloqueSala lineas = finalizarSala (recorrerSala salaVacia [] lineas)
@@ -259,8 +275,17 @@ recorrerSala acc errs (LineaCruda n "SALIDA" val : xs) =
   agregarSalidaSala n (parsearSalida val) acc errs xs
 recorrerSala acc errs (LineaCruda n "OBJETO" val : xs) =
   agregarObjetoSala n val acc errs xs
+recorrerSala acc errs (LineaCruda n "OSCURA" val : xs) =
+  agregarOscuraSala n val (salaAccOscura acc) acc errs xs
 recorrerSala acc errs (LineaCruda n clave _ : xs) =
   recorrerSala acc (ErrorSintaxis n ("Clave inválida en bloque SALA: " ++ clave) : errs) xs
+  
+agregarOscuraSala :: Int -> String -> Maybe Bool -> SalaAcc -> [ErrorMundo] -> [LineaCruda] -> (SalaAcc, [ErrorMundo])
+agregarOscuraSala n _ (Just _) acc errs xs =
+  recorrerSala acc (ErrorSintaxis n "OSCURA repetida en bloque SALA" : errs) xs
+agregarOscuraSala n val Nothing acc errs xs
+  | map toLower val == "si" = recorrerSala (acc { salaAccOscura = Just True }) errs xs
+  | otherwise               = recorrerSala acc (ErrorSintaxis n ("Valor inválido para OSCURA en SALA: " ++ val) : errs) xs  
 
 agregarIdSala :: Int -> String -> Maybe String -> SalaAcc -> [ErrorMundo] -> [LineaCruda] -> (SalaAcc, [ErrorMundo])
 agregarIdSala n _ (Just _) acc errs xs =
@@ -289,16 +314,20 @@ agregarObjetoSala n val acc errs xs
   | otherwise                 = recorrerSala acc (ErrorSintaxis n ("ID de OBJETO inválido en SALA: " ++ val) : errs) xs
 
 finalizarSala :: (SalaAcc, [ErrorMundo]) -> ([ErrorMundo], Maybe Sala)
-finalizarSala (acc, errs) = cerrarSala (salaAccId acc) (salaAccDesc acc) (reverse (salaAccSalidas acc)) (reverse (salaAccObjetos acc)) errs
+finalizarSala (acc, errs) =
+  let oscuraVal = case salaAccOscura acc of
+        Just b  -> b
+        Nothing -> False
+  in cerrarSala (salaAccId acc) (salaAccDesc acc) (reverse (salaAccSalidas acc)) (reverse (salaAccObjetos acc)) oscuraVal errs
 
-cerrarSala :: Maybe String -> Maybe String -> [Salida] -> [String] -> [ErrorMundo] -> ([ErrorMundo], Maybe Sala)
-cerrarSala Nothing desc sals objs errs =
-  cerrarSala (Just "") desc sals objs (ErrorSintaxis 1 "Falta SALA en bloque" : errs)
-cerrarSala sid Nothing sals objs errs =
-  cerrarSala sid (Just "") sals objs (ErrorSintaxis 1 "Falta DESC en bloque SALA" : errs)
-cerrarSala (Just sid) (Just desc) sals objs [] =
-  ([], Just (Sala { salaId = sid, salaDesc = desc, salaSalidas = sals, salaObjetos = objs }))
-cerrarSala _ _ _ _ errs =
+cerrarSala :: Maybe String -> Maybe String -> [Salida] -> [String] -> Bool -> [ErrorMundo] -> ([ErrorMundo], Maybe Sala)
+cerrarSala Nothing desc sals objs oscuraVal errs =
+  cerrarSala (Just "") desc sals objs oscuraVal (ErrorSintaxis 1 "Falta SALA en bloque" : errs)
+cerrarSala sid Nothing sals objs oscuraVal errs =
+  cerrarSala sid (Just "") sals objs oscuraVal (ErrorSintaxis 1 "Falta DESC en bloque SALA" : errs)
+cerrarSala (Just sid) (Just desc) sals objs oscuraVal [] =
+  ([], Just (Sala { salaId = sid, salaDesc = desc, salaSalidas = sals, salaObjetos = objs, salaOscura = oscuraVal }))
+cerrarSala _ _ _ _ _ errs =
   (reverse errs, Nothing)
 
 -- Encontrar elementos repetidos en una lista manteniendo su orden de aparición

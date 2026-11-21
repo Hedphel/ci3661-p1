@@ -3,6 +3,7 @@ module Motor.Mundo (
 ) where
 
 import Motor.Tipos
+import Motor.Reconocedor
 -- El (nub) nos permite identificar duplicados
 import Data.List (nub)
 import Data.Char (isSpace)
@@ -49,13 +50,9 @@ partirClaveValor texto = ir [] texto
 
 -- Un identificador no puede estar vacío y solo admite minúsculas
 esIdentificadorValido :: String -> Bool
-esIdentificadorValido [] = False
-esIdentificadorValido cs = validarChars cs
-  where
-    validarChars [] = True
-    validarChars (c:resto)
-      | esCharId c = validarChars resto
-      | otherwise  = False
+esIdentificadorValido s = case ejecutarParser identificador s of
+    Just _  -> True
+    Nothing -> False
 
 esCharId :: Char -> Bool
 esCharId c =
@@ -73,31 +70,17 @@ esDireccionValida "arriba" = True
 esDireccionValida "abajo"  = True
 esDireccionValida _        = False
 
-parsearMeta :: String -> Either String Meta
-parsearMeta valor = parsearPalabras (words valor)
-  where
-    parsearPalabras ["llegar", "a", sala]
-      | esIdentificadorValido sala = Right (LlegarASala sala)
-      | otherwise                  = Left ("Identificador de sala inválido en META: " ++ sala)
-    parsearPalabras ["llevar", obj, "a", sala]
-      | not (esIdentificadorValido obj) = Left ("Identificador de objeto inválido en META: " ++ obj)
-      | not (esIdentificadorValido sala)= Left ("Identificador de sala inválido en META: " ++ sala)
-      | otherwise                       = Right (LlevarObjetoASala obj sala)
-    parsearPalabras _ = Left ("META mal formada: " ++ valor)
-
 parsearSalida :: String -> Either String Salida
-parsearSalida valor = parsearPalabras (words valor)
-  where
-    parsearPalabras [dir, "->", sala]
-      | not (esDireccionValida dir)     = Left ("Dirección inexistente en SALIDA: " ++ dir)
-      | not (esIdentificadorValido sala)= Left ("Identificador de sala inválido en SALIDA: " ++ sala)
-      | otherwise                       = Right (SalidaLibre dir sala)
-    parsearPalabras [dir, "->", sala, "requiere", obj]
-      | not (esDireccionValida dir)     = Left ("Dirección inexistente en SALIDA: " ++ dir)
-      | not (esIdentificadorValido sala)= Left ("Identificador de sala inválido en SALIDA: " ++ sala)
-      | not (esIdentificadorValido obj) = Left ("Identificador de objeto inválido en SALIDA: " ++ obj)
-      | otherwise                       = Right (SalidaBloqueada dir sala obj)
-    parsearPalabras _ = Left ("SALIDA mal formada: " ++ valor)
+parsearSalida valor =
+    case ejecutarParser salidaParser valor of
+        Just s  -> Right s
+        Nothing -> Left ("SALIDA mal formada o inválida: " ++ valor)
+
+parsearMeta :: String -> Either String Meta
+parsearMeta valor =
+    case ejecutarParser metaParser valor of
+        Just m  -> Right m
+        Nothing -> Left ("META mal formada o inválida: " ++ valor)
 
 data LineaCruda = LineaCruda
   { lcLinea :: Int

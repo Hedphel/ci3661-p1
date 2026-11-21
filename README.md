@@ -14,4 +14,5 @@ Para calcular la variante a programar, se hizo el siguiente cálculo: $2310515 +
 
 ## Ejecución del proyecto
 
-(por hacer)
+(Por hacer)
+(Y así se quedó xd)

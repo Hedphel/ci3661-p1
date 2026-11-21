@@ -1,0 +1,13 @@
+# Errores esperados (V3, V4, V8):
+# - V8: INICIO con sala inexistente
+# - V3: SALIDA hacia sala inexistente
+# - V4: SALIDA requiere objeto inexistente
+
+MUNDO: Prueba referencias rotas
+INICIO: no_existe_inicio
+META: llegar a sala_a
+---
+SALA: sala_a
+DESC: Sala de prueba.
+SALIDA: norte -> sala_fantasma
+SALIDA: sur -> sala_a requiere objeto_fantasma

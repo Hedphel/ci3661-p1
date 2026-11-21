@@ -18,7 +18,9 @@ estadoInicial mundo = Estado
 -- los mensajes a mostrar junto con el nuevo estado.
 ejecutar :: Comando -> Estado -> ([String], Estado)
 ejecutar Mirar st =
-    ([describirSala st], st)
+    case obtenerSalaActual st of
+        Nothing   -> (["Error: la sala actual no existe en el mundo."], st)
+        Just sala -> (describirSala st sala, st)
 ejecutar (Ir dir) st =
     moverPorDireccion dir st
 ejecutar (Tomar obj) st =
@@ -44,17 +46,18 @@ obtenerSalaActual st =
     M.lookup (estadoSalaActual st) (mundoSalas (estadoMundo st))
 
 -- Describe la sala actual: descripción, objetos visibles y salidas.
-describirSala :: Estado -> String
-describirSala st =
-    case obtenerSalaActual st of
-        Nothing -> "Error: la sala actual no existe en el mundo."
-        Just sala ->
-            unlines $
-                [ salaDesc sala
-                , formatoObjetosSala (salaObjetos sala)
-                , formatoSalidasSala (salaSalidas sala)
-                ]
-
+describirSala :: Estado -> Sala -> [String]
+describirSala st sala
+    | estaEnOscuridad st sala =
+        [ salaDesc sala
+        , "Está demasiado oscuro para ver objetos o salidas."
+        ]
+    | otherwise =
+        [ salaDesc sala
+        , formatoObjetosSala (salaObjetos sala)
+        , formatoSalidasSala (salaSalidas sala)
+        ]
+    
 formatoObjetosSala :: [String] -> String
 formatoObjetosSala [] = "Objetos aquí: ninguno."
 formatoObjetosSala os = "Objetos aquí: " ++ unwords os
@@ -97,18 +100,22 @@ intentarCruzar (SalidaBloqueada _ destino reqObj) st
 finalizarMovimiento :: String -> Estado -> ([String], Estado)
 finalizarMovimiento destino st =
     let nuevoEstado = st { estadoSalaActual = destino }
-        baseMsgs    = [describirSala nuevoEstado]
+        baseMsgs    = case obtenerSalaActual nuevoEstado of
+                        Nothing   -> ["Error: la sala actual no existe en el mundo."]
+                        Just sala -> describirSala nuevoEstado sala
         metaMsgs    = if metaCumplida nuevoEstado
                       then ["*** ¡Has ganado! ***"]
                       else []
     in (baseMsgs ++ metaMsgs, nuevoEstado)
-
+    
 -- Toma un objeto de la sala actual y lo añade al inventario.
 tomarObjeto :: String -> Estado -> ([String], Estado)
 tomarObjeto obj st =
     case obtenerSalaActual st of
         Nothing -> (["Error: la sala actual no existe en el mundo."], st)
         Just sala
+            | estaEnOscuridad st sala ->
+                (["Está demasiado oscuro para ver qué tomar."], st)
             | not (obj `elem` salaObjetos sala) ->
                 (["No ves '" ++ obj ++ "' aquí."], st)
             | otherwise ->
@@ -153,19 +160,24 @@ quitarUno x (y:ys)
 -- Examina un objeto si está en el inventario o en la sala actual.
 examinarObjeto :: String -> Estado -> String
 examinarObjeto obj st
-    | not (estaEnInventarioOEnSala obj st) =
-        "No ves '" ++ obj ++ "' aquí ni en tu inventario."
+    | obj `elem` estadoInventario st =
+        describirObjetoPorId obj st
     | otherwise =
-        case M.lookup obj (mundoObjetos (estadoMundo st)) of
-            Nothing  -> "Objeto '" ++ obj ++ "' sin descripción."
-            Just det -> objDesc det
+        case obtenerSalaActual st of
+            Nothing -> "Error: la sala actual no existe en el mundo."
+            Just sala
+                | estaEnOscuridad st sala ->
+                    "Está demasiado oscuro para examinar eso."
+                | obj `elem` salaObjetos sala ->
+                    describirObjetoPorId obj st
+                | otherwise ->
+                    "No ves '" ++ obj ++ "' aquí ni en tu inventario."
 
-estaEnInventarioOEnSala :: String -> Estado -> Bool
-estaEnInventarioOEnSala obj st =
-    obj `elem` estadoInventario st ||
-    case obtenerSalaActual st of
-        Nothing   -> False
-        Just sala -> obj `elem` salaObjetos sala
+describirObjetoPorId :: String -> Estado -> String
+describirObjetoPorId obj st =
+    case M.lookup obj (mundoObjetos (estadoMundo st)) of
+        Nothing  -> "Objeto '" ++ obj ++ "' sin descripción."
+        Just det -> objDesc det
 
 describirInventario :: [String] -> String
 describirInventario [] = "Tu inventario está vacío."
@@ -194,3 +206,12 @@ metaCumplida st =
             estadoSalaActual st == salaObjetivo
         LlevarObjetoASala objObjetivo salaObjetivo ->
             estadoSalaActual st == salaObjetivo && objObjetivo `elem` estadoInventario st
+
+tieneLuz :: Estado -> Bool
+tieneLuz st =
+    let objs = mundoObjetos (estadoMundo st)
+        inv  = estadoInventario st
+    in any (\oid -> maybe False objLuz (M.lookup oid objs)) inv
+
+estaEnOscuridad :: Estado -> Sala -> Bool
+estaEnOscuridad st sala = salaOscura sala && not (tieneLuz st)         

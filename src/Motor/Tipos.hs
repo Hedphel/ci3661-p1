@@ -22,12 +22,14 @@ data Sala = Sala {
     salaId      :: String, 
     salaDesc    :: String, 
     salaSalidas :: [Salida],    -- Lista de salidas
-    salaObjetos :: [String]     -- Identificadores de los objetos
+    salaObjetos :: [String],     -- Identificadores de los objetos
+    salaOscura  :: Bool
 } deriving (Show, Eq, Read)
 
 data Objeto = Objeto { 
     objId   :: String, 
-    objDesc :: String 
+    objDesc :: String,
+    objLuz  :: Bool
 } deriving (Show, Eq, Read)
 
 data Mundo = Mundo {

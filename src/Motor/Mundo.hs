@@ -66,17 +66,35 @@ esIdentificadorValido s = case ejecutarParser identificador s of
     Just _  -> True
     Nothing -> False
 
+-- Valida si una cadena corresponde exactamente a una de las 6 direcciones
+esDireccionValida :: String -> Bool
+esDireccionValida s = case ejecutarParser direccionParser s of
+    Just _  -> True
+    Nothing -> False
+
 parsearSalida :: String -> Either String Salida
-parsearSalida valor =
-    case ejecutarParser salidaParser valor of
-        Just s  -> Right s
-        Nothing -> Left ("SALIDA mal formada o inválida: " ++ valor)
+parsearSalida valor = case words valor of
+    [dir, "->", sala]
+        | not (esDireccionValida dir)      -> Left ("Dirección inexistente en SALIDA: " ++ dir)
+        | not (esIdentificadorValido sala) -> Left ("Identificador de sala inválido en SALIDA: " ++ sala)
+        | otherwise                        -> Right (SalidaLibre dir sala)
+    [dir, "->", sala, "requiere", obj]
+        | not (esDireccionValida dir)      -> Left ("Dirección inexistente en SALIDA: " ++ dir)
+        | not (esIdentificadorValido sala) -> Left ("Identificador de sala inválido en SALIDA: " ++ sala)
+        | not (esIdentificadorValido obj)  -> Left ("Identificador de objeto inválido en SALIDA: " ++ obj)
+        | otherwise                        -> Right (SalidaBloqueada dir sala obj)
+    _ -> Left ("SALIDA mal formada: " ++ valor)
 
 parsearMeta :: String -> Either String Meta
-parsearMeta valor =
-    case ejecutarParser metaParser valor of
-        Just m  -> Right m
-        Nothing -> Left ("META mal formada o inválida: " ++ valor)
+parsearMeta valor = case words valor of
+    ["llegar", "a", sala]
+        | not (esIdentificadorValido sala) -> Left ("Identificador de sala inválido en META: " ++ sala)
+        | otherwise                        -> Right (LlegarASala sala)
+    ["llevar", obj, "a", sala]
+        | not (esIdentificadorValido obj)  -> Left ("Identificador de objeto inválido en META: " ++ obj)
+        | not (esIdentificadorValido sala) -> Left ("Identificador de sala inválido en META: " ++ sala)
+        | otherwise                        -> Right (LlevarObjetoASala obj sala)
+    _ -> Left ("META mal formada: " ++ valor)
 
 data LineaCruda = LineaCruda
   { lcLinea :: Int

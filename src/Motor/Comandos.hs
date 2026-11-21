@@ -30,5 +30,8 @@ leerComando linea =
         -- Otros
         ["ayuda"]   -> Just Ayuda
 
+        -- Salir del juego
+        ["salir"] -> Just Salir
+
         -- Todo lo demás
         _ -> Nothing

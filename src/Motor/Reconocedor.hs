@@ -177,7 +177,10 @@ metaParser = metaLlegar <|> metaLlevar
 
 -- Reconoce tres o más guiones: ---, ----, etc.
 separadorParser :: ReadS ()
-separadorParser = transformar (\_ -> ()) (algunos (char '-'))
+separadorParser =
+    descartarPrimero (cadena "---") $
+    descartarPrimero (muchos (char '-')) $
+    retornar ()
 
 ----- Ejecución del parser ------
 

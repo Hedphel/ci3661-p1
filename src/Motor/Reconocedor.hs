@@ -25,6 +25,7 @@ module Motor.Reconocedor (
     direccionParser,
     salidaParser,
     metaParser,
+    separadorParser,
     -- Ejecución
     ejecutarParser
 ) where    
@@ -173,7 +174,10 @@ metaParser = metaLlegar <|> metaLlevar
             descartarPrimero (entreEspacios (cadena "a")) $
             encadenar identificador $ \sala ->
             retornar (LlevarObjetoASala obj sala)
-        
+
+-- Reconoce tres o más guiones: ---, ----, etc.
+separadorParser :: ReadS ()
+separadorParser = transformar (\_ -> ()) (algunos (char '-'))
 
 ----- Ejecución del parser ------
 

@@ -30,45 +30,41 @@ limpiarLineas contenido = procesarLineas (zip [1..] (lines contenido))
       | otherwise               = (n, limpio) : procesarLineas xs
       where limpio = pasarMachete linea
 
--- Separar una lista de líneas numeradas en bloques
+esSeparador :: String -> Bool
+esSeparador s = case ejecutarParser separadorParser s of
+    Just _  -> True
+    Nothing -> False
+
+-- Separa las líneas numeradas en bloques usando el separador
 separarBloques :: [(Int, String)] -> [[(Int, String)]]
 separarBloques = ir []
   where
     ir [] [] = []
     ir actual [] = [reverse actual]
-    ir actual ((_, "-"):xs) = reverse actual : ir [] xs
-    ir actual (par:xs)      = ir (par : actual) xs
+    -- Cuando encontramos un separador (---), cerramos el bloque acumulado
+    ir actual ((_, linea):xs)
+      | esSeparador linea = reverse actual : ir [] xs
+    -- Cualquier otra línea se acumula en el bloque actual
+    ir actual (par:xs) = ir (par : actual) xs
+
+-- Reconoce una clave en mayúsculas, seguida de ':', espacios y el resto del valor
+lineaClaveValorParser :: ReadS (String, String)
+lineaClaveValorParser =
+    encadenar claveParser $ \k ->
+    descartarPrimero (char ':') $
+    encadenar (muchos (caracter (const True))) $ \resto ->
+    retornar (k, pasarMachete resto)
 
 -- Separar clave:valor en Just (clave, pasarMachete valor),
 -- o devuelve Nothing si no hay ":" o la clave está vacía
 partirClaveValor :: String -> Maybe (String, String)
-partirClaveValor texto = ir [] texto
-  where
-    ir _ [] = Nothing
-    ir acc (':':resto) = Just (reverse acc, pasarMachete resto)
-    ir acc (c:cs)      = ir (c:acc) cs
+partirClaveValor = ejecutarParser lineaClaveValorParser
 
 -- Un identificador no puede estar vacío y solo admite minúsculas
 esIdentificadorValido :: String -> Bool
 esIdentificadorValido s = case ejecutarParser identificador s of
     Just _  -> True
     Nothing -> False
-
-esCharId :: Char -> Bool
-esCharId c =
-  (c >= 'a' && c <= 'z')
-  || (c >= '0' && c <= '9')
-  || c == '_'
-  || c `elem` "áéíóúñü"
-
-esDireccionValida :: String -> Bool
-esDireccionValida "norte"  = True
-esDireccionValida "sur"    = True
-esDireccionValida "este"   = True
-esDireccionValida "oeste"  = True
-esDireccionValida "arriba" = True
-esDireccionValida "abajo"  = True
-esDireccionValida _        = False
 
 parsearSalida :: String -> Either String Salida
 parsearSalida valor =

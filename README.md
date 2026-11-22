@@ -57,3 +57,43 @@ cabal test --test-show-details=always
 ```
 
 ---
+
+## Ejecución
+
+El ejecutable `aventura` soporta dos modalidades de uso según la especificación.
+
+### 1. Solo validación (`-validar`)
+
+En esta modalidad se verifica que el archivo del mundo no tenga errores de sintaxis ($V_1$) ni semántica ($V_2$ a $V_{10}$). Imprime `Mundo válido.` (código de salida 0) o la lista de errores encontrados (código de salida 1).
+
+```bash
+# Validar un mundo correcto
+cabal run exe:aventura -- -validar mundos/entrega.txt
+
+# Validar mundos con errores sintácticos
+cabal run exe:aventura -- -validar mundos/invalido_sintaxis.txt
+
+# Validar mundos con errores semánticos
+cabal run exe:aventura -- -validar mundos/invalido_semantica.txt
+```
+
+### 2. Modo interactivo (Jugar)
+
+Esta es la modalidad en la que se carga el mundo y se abre la sesión interactiva con el indicador `> ` para jugar:
+```bash
+cabal run exe:aventura -- mundos/entrega.txt
+```
+
+Acorde a la especificación, se pueden usar los comandos en las siguientes categorías:
+- Movimiento: `ir norte`, `ir sur`, `ir este`, `ir oeste`, `ir arriba`, `ir abajo` (alternativemente, se puede escribir la dirección `norte`, `sur`, o su abreviación `n`, `s`, etc.).
+- Entorno: `mirar`, `inventario` (o `inv`), `ayuda`.
+- Objetos: `tomar <objeto>` (o `coger`), `soltar <objeto>`, `examinar <objeto>`.
+- Partidas: `guardar <archivo>`, `cargar <archivo>`.
+- Salir: `salir`.
+
+### 3. Modo con entrada redirigida (Scripts / Guiones)
+
+En este modo, se usan "guiones", que son secuencias de comandos en un archivo para correr pruebas automatizadas. Termina normalmente al alcanzar `EOF` o al cumplirse la meta con un mensaje de éxito:
+```bash
+cabal run exe:aventura -- mundos/entrega.txt < guiones/entrega.txt
+```

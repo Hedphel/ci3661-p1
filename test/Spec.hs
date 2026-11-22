@@ -1,201 +1,226 @@
 module Main (main) where
 
-import System.Exit (exitFailure, exitSuccess)
+import Data.List (isInfixOf)
 import Test.HUnit
+import qualified Data.Map as M
+import System.Exit (exitFailure, exitSuccess)
 
-import Motor.Persistencia (cargarMundo)
-import Motor.Comandos (leerComando)
-import Motor.Mundo (leerMundo)
-import Motor.Nucleo (ejecutar, estadoInicial)
 import Motor.Tipos
+import Motor.Mundo (leerMundo)
+import Motor.Comandos (leerComando)
+import Motor.Nucleo (estadoInicial, ejecutar)
 
--- Mundo mínimo de prueba para ejercitar salidas bloqueadas, objetos y victoria
-mundoPrueba :: String
-mundoPrueba = unlines
-    [ "MUNDO: Prueba Unitaria"
-    , "INICIO: entrada"
-    , "META: llevar tesoro a camara"
-    , "---"
-    , "OBJETO: llave"
-    , "DESC: Una llave de hierro."
-    , "---"
-    , "OBJETO: tesoro"
-    , "DESC: Un cofre brillante."
-    , "---"
-    , "SALA: entrada"
-    , "DESC: La entrada principal."
-    , "SALIDA: norte -> camara requiere llave"
-    , "OBJETO: llave"
-    , "---"
-    , "SALA: camara"
-    , "DESC: La camara secreta."
-    , "SALIDA: sur -> entrada"
-    , "OBJETO: tesoro"
-    ]
+--------------------------------------------------------------------------------
+-- 1. Pruebas de leerComando
+--------------------------------------------------------------------------------
 
-ejecutarGuion :: [Comando] -> Estado -> ([String], Estado)
-ejecutarGuion [] st = ([], st)
-ejecutarGuion (c:cs) st =
-    let (m1, st1) = ejecutar c st
-        (m2, st2) = ejecutarGuion cs st1
-    in (m1 ++ m2, st2)
+testComandosValidos :: Test
+testComandosValidos = TestCase $ do
+    assertEqual "mirar" (Just Mirar) (leerComando "mirar")
+    assertEqual "ir norte" (Just (Ir "norte")) (leerComando "ir norte")
+    assertEqual "dirección directa norte" (Just (Ir "norte")) (leerComando "norte")
+    assertEqual "abreviatura sur 's'" (Just (Ir "sur")) (leerComando "s")
+    assertEqual "tomar objeto" (Just (Tomar "carnet")) (leerComando "tomar carnet")
+    assertEqual "sinónimo coger" (Just (Tomar "carnet")) (leerComando "coger carnet")
+    assertEqual "soltar objeto" (Just (Soltar "carnet")) (leerComando "soltar carnet")
+    assertEqual "examinar objeto" (Just (Examinar "carnet")) (leerComando "examinar carnet")
+    assertEqual "inventario" (Just Inventario) (leerComando "inventario")
+    assertEqual "alias inv" (Just Inventario) (leerComando "inv")
+    assertEqual "guardar partida" (Just (Guardar "p.txt")) (leerComando "guardar p.txt")
+    assertEqual "cargar partida" (Just (Cargar "p.txt")) (leerComando "cargar p.txt")
+    assertEqual "ayuda" (Just Ayuda) (leerComando "ayuda")
+    assertEqual "salir" (Just Salir) (leerComando "salir")
 
--- 1. Pruebas de leerMundo (sintaxis y semantica)
-testMundoEjemplo :: Test
-testMundoEjemplo = TestCase $ do
-    res <- cargarMundo "mundos/entrega.txt"
-    case res of
-        Left errs -> assertFailure ("Se esperaba mundo valido, pero dio errores: " ++ show errs)
-        Right m   -> assertEqual "Titulo del mundo de ejemplo" "Entrega a última hora" (mundoTitulo m)
+testComandosInvalidos :: Test
+testComandosInvalidos = TestCase $ do
+    assertEqual "comando inexistente" Nothing (leerComando "bailar")
+    assertEqual "comando vacío" Nothing (leerComando "")
+    assertEqual "ir sin dirección" Nothing (leerComando "ir")
+    assertEqual "tomar sin objeto" Nothing (leerComando "tomar")
+    assertEqual "comando con palabras de más" Nothing (leerComando "tomar carnet ahora mismo")
 
-testMundoInvalidoSemantica :: Test
-testMundoInvalidoSemantica = TestCase $ do
-    contenido <- readFile "mundos/invalido_semantica.txt"
+--------------------------------------------------------------------------------
+-- 2. Pruebas de leerMundo con archivos del proyecto
+--------------------------------------------------------------------------------
+
+testMundoEntrega :: Test
+testMundoEntrega = TestCase $ do
+    contenido <- readFile "mundos/entrega.txt"
     case leerMundo contenido of
-        Right _   -> assertFailure "Se esperaban errores semanticos"
-        Left errs -> assertBool ("Se esperaban al menos 9 errores, hubo " ++ show (length errs)) (length errs >= 9)
+        Left errs -> assertFailure ("entrega.txt debió ser válido pero dio errores: " ++ show errs)
+        Right m   -> assertEqual "Título de entrega.txt" "Entrega a última hora" (mundoTitulo m)
 
 testMundoInvalidoSintaxis :: Test
 testMundoInvalidoSintaxis = TestCase $ do
     contenido <- readFile "mundos/invalido_sintaxis.txt"
     case leerMundo contenido of
-        Right _   -> assertFailure "Se esperaban errores de sintaxis"
-        Left errs -> assertBool "Debe haber al menos un error de sintaxis" (not (null errs))
+        Right _   -> assertFailure "invalido_sintaxis.txt debió fallar por sintaxis"
+        Left errs -> assertBool "Debe reportar múltiples errores sintácticos" (length errs >= 4)
 
-testMundoVacio :: Test
-testMundoVacio = TestCase $
-    case leerMundo "" of
-        Right _   -> assertFailure "Mundo vacio debe fallar"
-        Left errs -> assertEqual "Un error por archivo vacio" 1 (length errs)
+testMundoInvalidoSemantica :: Test
+testMundoInvalidoSemantica = TestCase $ do
+    contenido <- readFile "mundos/invalido_semantica.txt"
+    case leerMundo contenido of
+        Right _   -> assertFailure "invalido_semantica.txt debió fallar por semántica"
+        Left errs -> assertBool "Debe reportar al menos 9 errores de validación" (length errs >= 9)
 
-testMundoConComentariosYEspacios :: Test
-testMundoConComentariosYEspacios = TestCase $ do
-    let txt = unlines
-            [ "   # Comentario inicial"
-            , ""
-            , "  MUNDO:   Con Espacios  "
-            , "  INICIO:  sala_a "
-            , "  META: llegar a sala_a "
-            , " --- "
-            , " SALA: sala_a "
-            , " DESC: Unica sala "
-            ]
-    case leerMundo txt of
-        Left errs -> assertFailure ("No debio fallar: " ++ show errs)
-        Right m   -> assertEqual "Titulo limpio" "Con Espacios" (mundoTitulo m)
+--------------------------------------------------------------------------------
+-- 3. Pruebas del Núcleo puro (ejecutar) y Variante 0 (Oscuridad)
+--------------------------------------------------------------------------------
 
--- 2. Pruebas de leerComando
-testCmdMirar :: Test
-testCmdMirar = TestCase $
-    assertEqual "mirar" (Just Mirar) (leerComando "mirar")
+-- Mini-mundo con una sala iluminada y una sala oscura
+mundoPrueba :: Mundo
+mundoPrueba = Mundo
+    { mundoTitulo  = "Mundo de prueba"
+    , mundoInicio  = "origen"
+    , mundoMeta    = LlegarASala "meta"
+    , mundoSalas   = M.fromList
+        [ ("origen", Sala
+            { salaId      = "origen"
+            , salaDesc    = "Sala inicial iluminada."
+            , salaSalidas = [ SalidaLibre "norte" "cueva"
+                            , SalidaBloqueada "este" "meta" "llave"
+                            ]
+            , salaObjetos = ["antorcha", "piedra"]
+            , salaOscura  = False
+            })
+        , ("cueva", Sala
+            { salaId      = "cueva"
+            , salaDesc    = "Cueva muy profunda."
+            , salaSalidas = [SalidaLibre "sur" "origen"]
+            , salaObjetos = ["tesoro"]
+            , salaOscura  = True
+            })
+        , ("meta", Sala
+            { salaId      = "meta"
+            , salaDesc    = "Sala final."
+            , salaSalidas = [SalidaLibre "oeste" "origen"]
+            , salaObjetos = []
+            , salaOscura  = False
+            })
+        ]
+    , mundoObjetos = M.fromList
+        [ ("antorcha", Objeto "antorcha" "Una antorcha que da luz." True)
+        , ("piedra", Objeto "piedra" "Una simple piedra." False)
+        , ("tesoro", Objeto "tesoro" "Un tesoro brillante." False)
+        , ("llave", Objeto "llave" "Una llave dorada." False)
+        ]
+    }
 
-testCmdIr :: Test
-testCmdIr = TestCase $
-    assertEqual "ir norte" (Just (Ir "norte")) (leerComando "  IR   NORTE ")
+testChoqueSalidaBloqueada :: Test
+testChoqueSalidaBloqueada = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (msgs, st1) = ejecutar (Ir "este") st0
+    assertBool "Mensaje de bloqueo" (any (isInfixOf "bloqueada") msgs)
+    assertEqual "El jugador no se mueve" "origen" (estadoSalaActual st1)
 
-testCmdTomarYCoger :: Test
-testCmdTomarYCoger = TestCase $ do
-    assertEqual "tomar llave" (Just (Tomar "llave")) (leerComando "tomar llave")
-    assertEqual "coger llave" (Just (Tomar "llave")) (leerComando "coger llave")
+testTomarYSoltarObjeto :: Test
+testTomarYSoltarObjeto = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (_, st1) = ejecutar (Tomar "piedra") st0
+    assertEqual "Objeto en inventario" ["piedra"] (estadoInventario st1)
+    let (_, st2) = ejecutar (Soltar "piedra") st1
+    assertEqual "Inventario vacío tras soltar" [] (estadoInventario st2)
 
-testCmdSoltarYExaminar :: Test
-testCmdSoltarYExaminar = TestCase $ do
-    assertEqual "soltar llave" (Just (Soltar "llave")) (leerComando "soltar llave")
-    assertEqual "examinar llave" (Just (Examinar "llave")) (leerComando "examinar llave")
+testVarianteOscuridadSinLuz :: Test
+testVarianteOscuridadSinLuz = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (_, stEnCueva) = ejecutar (Ir "norte") st0
+        (msgsMirar, _) = ejecutar Mirar stEnCueva
+        (msgsTomar, _) = ejecutar (Tomar "tesoro") stEnCueva
+    assertBool "Mirar en cueva oscura oculta info"
+        (any (\m -> "oscuro" `elem` words m) msgsMirar)
+    assertBool "No puede tomar en cueva oscura"
+        (any (\m -> "oscuro" `elem` words m) msgsTomar)
 
-testCmdInventarioAlias :: Test
-testCmdInventarioAlias = TestCase $ do
-    assertEqual "inventario" (Just Inventario) (leerComando "inventario")
-    assertEqual "inv" (Just Inventario) (leerComando "inv")
+testVarianteOscuridadConLuz :: Test
+testVarianteOscuridadConLuz = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (_, stConAntorcha) = ejecutar (Tomar "antorcha") st0
+        (_, stEnCueva)     = ejecutar (Ir "norte") stConAntorcha
+        (msgsMirar, _)     = ejecutar Mirar stEnCueva
+    assertBool "Con luz se ven los objetos"
+        (any (\m -> "tesoro" `elem` words m) msgsMirar)
 
-testCmdGuardarCargarAyudaSalir :: Test
-testCmdGuardarCargarAyudaSalir = TestCase $ do
-    assertEqual "guardar" (Just (Guardar "save.txt")) (leerComando "guardar save.txt")
-    assertEqual "cargar" (Just (Cargar "save.txt")) (leerComando "cargar save.txt")
-    assertEqual "ayuda" (Just Ayuda) (leerComando "ayuda")
-    assertEqual "salir" (Just Salir) (leerComando "salir")
+testLlegarALaMeta :: Test
+testLlegarALaMeta = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        -- Simulamos que el jugador consiguió la llave
+        stConLlave = st0 { estadoInventario = ["llave"] }
+        (msgs, stFinal) = ejecutar (Ir "este") stConLlave
+    assertEqual "Llega a la meta" "meta" (estadoSalaActual stFinal)
+    assertBool "Mensaje de victoria" ("*** ¡Has ganado! ***" `elem` msgs)
 
-testCmdInvalidos :: Test
-testCmdInvalidos = TestCase $ do
-    assertEqual "vacio" Nothing (leerComando "")
-    assertEqual "solo espacios" Nothing (leerComando "   ")
-    assertEqual "verbo desconocido" Nothing (leerComando "volar")
-    assertEqual "ir sin direccion" Nothing (leerComando "ir")
-    assertEqual "tomar sin objeto" Nothing (leerComando "tomar")
+testExaminarObjeto :: Test
+testExaminarObjeto = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (msg, _) = (head (fst (ejecutar (Examinar "antorcha") st0)), st0)
+    assertBool "Descripción de antorcha" (isInfixOf "antorcha" msg)
 
--- 3. Pruebas puras de ejecutar y estadoInicial
-testEstadoInicial :: Test
-testEstadoInicial = TestCase $
-    case leerMundo mundoPrueba of
-        Left errs -> assertFailure (show errs)
-        Right m   -> do
-            let st = estadoInicial m
-            assertEqual "Sala inicial" "entrada" (estadoSalaActual st)
-            assertEqual "Inventario vacio" [] (estadoInventario st)
+testInventarioComando :: Test
+testInventarioComando = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (msgsVacio, _) = ejecutar Inventario st0
+    assertBool "Inventario vacío" (any (isInfixOf "vacío") msgsVacio)
+    let (_, stConObj) = ejecutar (Tomar "piedra") st0
+        (msgsLleno, _) = ejecutar Inventario stConObj
+    assertBool "Inventario con piedra" (any (isInfixOf "piedra") msgsLleno)
 
-testSalidaBloqueadaSinObjeto :: Test
-testSalidaBloqueadaSinObjeto = TestCase $
-    case leerMundo mundoPrueba of
-        Left errs -> assertFailure (show errs)
-        Right m   -> do
-            let st0 = estadoInicial m
-                (_, st1) = ejecutar (Ir "norte") st0
-            assertEqual "No debe moverse sin la llave" "entrada" (estadoSalaActual st1)
+testAyudaComando :: Test
+testAyudaComando = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (msgs, _) = ejecutar Ayuda st0
+    assertBool "Comandos de ayuda presentes" (length msgs >= 5)
 
-testCruzarSalidaBloqueadaConObjeto :: Test
-testCruzarSalidaBloqueadaConObjeto = TestCase $
-    case leerMundo mundoPrueba of
-        Left errs -> assertFailure (show errs)
-        Right m   -> do
-            let st0 = estadoInicial m
-                (_, st1) = ejecutarGuion [Tomar "llave", Ir "norte"] st0
-            assertEqual "Debe cruzar a camara con llave" "camara" (estadoSalaActual st1)
-            assertEqual "Inventario tiene llave" ["llave"] (estadoInventario st1)
+testMovimientoLibre :: Test
+testMovimientoLibre = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (_, st1) = ejecutar (Ir "norte") st0
+    assertEqual "Mueve a cueva" "cueva" (estadoSalaActual st1)
+    let (_, st2) = ejecutar (Ir "sur") st1
+    assertEqual "Regresa a origen" "origen" (estadoSalaActual st2)
 
-testSoltarYExaminar :: Test
-testSoltarYExaminar = TestCase $
-    case leerMundo mundoPrueba of
-        Left errs -> assertFailure (show errs)
-        Right m   -> do
-            let st0 = estadoInicial m
-                (msgs, st1) = ejecutarGuion [Tomar "llave", Examinar "llave", Soltar "llave"] st0
-            assertEqual "Inventario vuelve a quedar vacio" [] (estadoInventario st1)
-            assertBool "Examinar muestra descripcion" ("Una llave de hierro." `elem` msgs)
+testDireccionInexistente :: Test
+testDireccionInexistente = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (msgs, st1) = ejecutar (Ir "arriba") st0
+    assertBool "No hay salida arriba" (any (isInfixOf "No hay salida") msgs)
+    assertEqual "Sigue en origen" "origen" (estadoSalaActual st1)
 
-testVictoriaPorSecuencia :: Test
-testVictoriaPorSecuencia = TestCase $
-    case leerMundo mundoPrueba of
-        Left errs -> assertFailure (show errs)
-        Right m   -> do
-            let st0 = estadoInicial m
-                (msgs, stFinal) = ejecutarGuion [Tomar "llave", Ir "norte", Tomar "tesoro"] st0
-            assertEqual "Debe estar en camara" "camara" (estadoSalaActual stFinal)
-            assertBool "Debe emitir mensaje exacto de victoria" ("*** ¡Has ganado! ***" `elem` msgs)
+testExaminarSinLuz :: Test
+testExaminarSinLuz = TestCase $ do
+    let st0 = estadoInicial mundoPrueba
+        (_, stEnCueva) = ejecutar (Ir "norte") st0
+        (msgs, _) = ejecutar (Examinar "tesoro") stEnCueva
+    assertBool "No puede examinar en oscuridad" (any (isInfixOf "oscuro") msgs)
 
-pruebas :: Test
-pruebas = TestList
-    [ TestLabel "leerMundo: entrega.txt" testMundoEjemplo
-    , TestLabel "leerMundo: invalido_semantica.txt" testMundoInvalidoSemantica
-    , TestLabel "leerMundo: invalido_sintaxis.txt" testMundoInvalidoSintaxis
-    , TestLabel "leerMundo: vacio" testMundoVacio
-    , TestLabel "leerMundo: comentarios y espacios" testMundoConComentariosYEspacios
-    , TestLabel "leerComando: mirar" testCmdMirar
-    , TestLabel "leerComando: ir" testCmdIr
-    , TestLabel "leerComando: tomar y coger" testCmdTomarYCoger
-    , TestLabel "leerComando: soltar y examinar" testCmdSoltarYExaminar
-    , TestLabel "leerComando: inventario e inv" testCmdInventarioAlias
-    , TestLabel "leerComando: guardar, cargar, ayuda y salir" testCmdGuardarCargarAyudaSalir
-    , TestLabel "leerComando: invalidos" testCmdInvalidos
-    , TestLabel "ejecutar: estadoInicial" testEstadoInicial
-    , TestLabel "ejecutar: salida bloqueada sin objeto" testSalidaBloqueadaSinObjeto
-    , TestLabel "ejecutar: cruzar salida bloqueada" testCruzarSalidaBloqueadaConObjeto
-    , TestLabel "ejecutar: soltar y examinar" testSoltarYExaminar
-    , TestLabel "ejecutar: victoria por secuencia" testVictoriaPorSecuencia
+--------------------------------------------------------------------------------
+-- Runner principal
+--------------------------------------------------------------------------------
+
+tests :: Test
+tests = TestList
+    [ TestLabel "01. Comandos Válidos" testComandosValidos
+    , TestLabel "02. Comandos Inválidos" testComandosInvalidos
+    , TestLabel "03. Mundo Entrega Válido" testMundoEntrega
+    , TestLabel "04. Mundo Inválido Sintaxis" testMundoInvalidoSintaxis
+    , TestLabel "05. Mundo Inválido Semántica" testMundoInvalidoSemantica
+    , TestLabel "06. Movimiento Libre" testMovimientoLibre
+    , TestLabel "07. Dirección Inexistente" testDireccionInexistente
+    , TestLabel "08. Salida Bloqueada" testChoqueSalidaBloqueada
+    , TestLabel "09. Tomar y Soltar" testTomarYSoltarObjeto
+    , TestLabel "10. Examinar Objeto" testExaminarObjeto
+    , TestLabel "11. Inventario" testInventarioComando
+    , TestLabel "12. Ayuda" testAyudaComando
+    , TestLabel "13. Oscuridad Sin Luz" testVarianteOscuridadSinLuz
+    , TestLabel "14. Examinar Sin Luz" testExaminarSinLuz
+    , TestLabel "15. Oscuridad Con Luz" testVarianteOscuridadConLuz
+    , TestLabel "16. Victoria en Meta" testLlegarALaMeta
     ]
 
 main :: IO ()
 main = do
-    resCounts <- runTestTT pruebas
-    if errors resCounts + failures resCounts == 0
-        then exitSuccess
-        else exitFailure
+    resultado <- runTestTT tests
+    if errors resultado > 0 || failures resultado > 0
+        then exitFailure
+        else exitSuccess

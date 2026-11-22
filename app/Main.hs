@@ -4,7 +4,7 @@ module Main (main) where
 import Data.Char (isSpace)
 import System.Environment (getArgs)
 import System.Exit (ExitCode (..), exitSuccess, exitWith)
-import System.IO (isEOF)
+import System.IO (isEOF, hFlush, stdout)
 
 import Motor.Comandos (leerComando)
 -- import Motor.Mundo (leerMundo)
@@ -66,6 +66,7 @@ bucleJuego st = do
         then exitSuccess
         else do
             putStr "> "
+            hFlush stdout
             linea <- getLine
             let limpia = trim linea
             if null limpia

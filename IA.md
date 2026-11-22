@@ -7,5 +7,5 @@ Para este proyecto, los integrantes utilizaron Gemini como herramienta para comp
 - Manejo de alias en los comandos
 - Estructura y corrección de los reconocedores
 - Generación del mundo y del nucleo acorde a las decisiones tomadas
-
-Conforme pasaron los días y el tiempo se fue agotando, acabamos recurriendo con mayor frecuencia a consultarle a la IA. Nos ayudó a generar código cuando el tiempo se nos acabó yendo de las manos.
+- Corregir e identificar qué cambios en otros módulos además de Tipos (en Mundo) había que hacer para poder implementar las variantes
+- Generación de pruebas en Spec.hs

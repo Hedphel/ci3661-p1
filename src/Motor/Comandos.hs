@@ -11,6 +11,11 @@ leerComando linea =
     case words (map toLower linea) of
         ["mirar"]   -> Just Mirar
         ["ir", dir] -> Just (Ir dir)
+        [dir] | dir `elem` ["norte", "sur", "este", "oeste", "arriba", "abajo"] -> Just (Ir dir)
+        ["n"] -> Just (Ir "norte")
+        ["s"] -> Just (Ir "sur")
+        ["e"] -> Just (Ir "este")
+        ["o"] -> Just (Ir "oeste")
 
         -- Con objetos
         ["examinar", objeto]-> Just (Examinar objeto)

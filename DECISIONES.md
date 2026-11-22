@@ -51,6 +51,19 @@ Se eligió ReadS por la facilidad y la poca fricción que existe para los recono
 
 **Consecuencias**: Hay menos código repetitivo, se pierde el aumento de tiempo al compilar newtypes.
 
+## D5. Decisión para implementar la variante del mundo
+**Contexto**: Una sala puede tener OSCURA: si y un objeto LUZ: si. En una sala oscura, si el jugador no lleva un objeto que dé luz, mirar no muestra objetos ni salidas y no se puede tomar ni examinar nada de la sala. Hay que decidir si se puede salir de una sala oscura a ciegas, y por dónde.
+
+**Opciones**:
+1. Impedir cualquier comando de `ir <dir>` en la sala oscura mientras no haya luz (decimos que está muy oscuro)
+2. Se permite únicamente volver a la sala de origen
+3. Se permite el movimiento a ciegas, en el que el jugador no puede ver las salidas con `mirar`
+
+**Decisión**: Se elige la opción 3, en la que el jugador puede ir a ciegas aunque no vea cuál ruta está disponible.
+
+**Consecuencias**: Se evita que el jugador quede atrapado para siempre si entra a una sala oscura por error, permitiéndole escapar a tientas si recuerda por dónde vino. Claro, un jugador podría tantear y tantear hasta llegar a la salida, pero sería laborioso.
+
+
 ## D6. Cómo se representan las salidas bloqueadas
 **Contexto**:
 Una salida en una sala puede requerir un objeto específico para poder pasar por ella.
